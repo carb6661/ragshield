@@ -2,6 +2,8 @@
 
 Thank you for helping improve defensive RAG security.
 
+Participation is governed by [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+
 1. Open an issue describing the control, defect, or documentation change.
 2. Fork the repository and create a focused branch.
 3. Add regression tests for behavior changes.
@@ -14,4 +16,3 @@ payloads must be inert and must not contain real secrets or destructive actions.
 
 By participating, you agree to keep discussions respectful and focused on safe,
 authorized security research.
-

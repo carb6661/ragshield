@@ -11,8 +11,7 @@ services:
     volumes:
       - ragshield-data:/data
     ports:
-      - "8000:8000"
-    restart: unless-stopped
+      - "127.0.0.1:8000:8000"
 
   console:
     build: ./frontend
@@ -20,8 +19,7 @@ services:
       api:
         condition: service_healthy
     ports:
-      - "8080:80"
-    restart: unless-stopped
+      - "127.0.0.1:8080:80"
 
 volumes:
   ragshield-data:

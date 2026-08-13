@@ -23,6 +23,8 @@ jobs:
           cache-dependency-path: backend/pyproject.toml
       - run: pip install -e ".[dev]"
       - run: ruff check app tests
+      - run: bandit -r app ../examples -x tests -ll -ii
+      - run: pip-audit .
       - run: pytest --cov=app --cov-report=term-missing
 
   frontend:
@@ -38,5 +40,5 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      - run: npm audit --audit-level=high
       - run: npm run build
-

@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- make the comprehensive Chinese guide the default repository README;
+- retain an English README for international contributors;
+- bind Docker services to loopback and remove automatic restart behavior;
+- remove third-party runtime font requests and tighten the frontend CSP;
+- replace credential-like demo values with clearly inert test strings;
+- add a Code of Conduct and a documented pre-publication security audit;
+- run Bandit, pip-audit, and npm audit in CI.
+
 ## 0.2.0 - 2026-08-13
 
 - add an opt-in, operator-allowlisted HTTP target adapter;
@@ -16,4 +26,3 @@
 - six deterministic OWASP LLM and MITRE ATLAS mapped controls;
 - vulnerable and hardened local profiles;
 - scan history, Markdown reports, Docker Compose, tests, and CI.
-

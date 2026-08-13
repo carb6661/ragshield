@@ -20,8 +20,10 @@ ragshield = "app.cli:main"
 
 [project.optional-dependencies]
 dev = [
+  "bandit>=1.9,<2",
   "pytest>=8.3,<9",
   "pytest-cov>=5,<7",
+  "pip-audit>=2.10,<3",
   "ruff>=0.8,<1",
 ]
 
