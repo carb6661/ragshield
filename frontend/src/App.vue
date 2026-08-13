@@ -1,15 +1,21 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { api } from './api'
-import type { Dashboard, Finding, Rule, Scan } from './types'
+import type { Capabilities, Dashboard, Finding, Rule, Scan } from './types'
 
 const dashboard = ref<Dashboard | null>(null)
 const scans = ref<Scan[]>([])
 const rules = ref<Rule[]>([])
+const capabilities = ref<Capabilities | null>(null)
 const selectedScan = ref<Scan | null>(null)
 const selectedFinding = ref<Finding | null>(null)
 const targetProfile = ref('demo-vulnerable')
+const endpointUrl = ref('')
+const responseField = ref('answer')
+const bearerToken = ref('')
+const targetName = ref('Authorized RAG Endpoint')
 const running = ref(false)
+const comparing = ref(false)
 const loading = ref(true)
 const error = ref('')
 const view = ref<'dashboard' | 'controls' | 'history'>('dashboard')
@@ -20,16 +26,28 @@ const allCategories = computed(() => {
   const source = latest.value?.findings ?? rules.value
   return [...new Set(source.map((item) => item.category))]
 })
+const profileLabel = computed(() => {
+  if (targetProfile.value === 'demo-hardened') return 'Hardened RAG Baseline'
+  if (targetProfile.value === 'authorized-http') return targetName.value || 'Authorized RAG Endpoint'
+  return 'Vulnerable RAG Lab'
+})
+const baselineDelta = computed(() => {
+  const vulnerable = scans.value.find((scan) => scan.target_profile === 'demo-vulnerable')
+  const hardened = scans.value.find((scan) => scan.target_profile === 'demo-hardened')
+  return vulnerable && hardened ? Math.round((hardened.score - vulnerable.score) * 10) / 10 : null
+})
 
 async function loadData() {
-  const [stats, history, ruleSet] = await Promise.all([
+  const [stats, history, ruleSet, serverCapabilities] = await Promise.all([
     api.dashboard(),
     api.scans(),
     api.rules(),
+    api.capabilities(),
   ])
   dashboard.value = stats
   scans.value = history
   rules.value = ruleSet
+  capabilities.value = serverCapabilities
   if (!selectedScan.value) selectedScan.value = history[0] ?? stats.latest_scan
 }
 
@@ -37,14 +55,35 @@ async function launchScan() {
   running.value = true
   error.value = ''
   try {
-    const name = targetProfile.value === 'demo-hardened' ? 'Hardened RAG Baseline' : 'Vulnerable RAG Lab'
-    selectedScan.value = await api.createScan(name, targetProfile.value)
+    selectedScan.value = await api.createScan({
+      target_name: profileLabel.value,
+      target_profile: targetProfile.value,
+      endpoint_url: targetProfile.value === 'authorized-http' ? endpointUrl.value : undefined,
+      response_field: targetProfile.value === 'authorized-http' ? responseField.value : undefined,
+      bearer_token: targetProfile.value === 'authorized-http' && bearerToken.value ? bearerToken.value : undefined,
+    })
+    bearerToken.value = ''
     await loadData()
     view.value = 'dashboard'
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'Unable to run the evaluation.'
   } finally {
     running.value = false
+  }
+}
+
+async function compareBaselines() {
+  comparing.value = true
+  error.value = ''
+  try {
+    await api.createScan({ target_name: 'Vulnerable RAG Lab', target_profile: 'demo-vulnerable' })
+    selectedScan.value = await api.createScan({ target_name: 'Hardened RAG Baseline', target_profile: 'demo-hardened' })
+    targetProfile.value = 'demo-hardened'
+    await loadData()
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : 'Unable to compare baselines.'
+  } finally {
+    comparing.value = false
   }
 }
 
@@ -104,8 +143,11 @@ onMounted(async () => {
         </div>
         <div class="header-actions">
           <div class="live-chip"><span></span> ENGINE ONLINE</div>
-          <button class="primary" @click="launchScan" :disabled="running">
+          <button class="primary" @click="launchScan" :disabled="running || (targetProfile === 'authorized-http' && !endpointUrl)">
             {{ running ? 'Evaluating…' : 'Run evaluation' }}
+          </button>
+          <button class="secondary" @click="compareBaselines" :disabled="comparing">
+            {{ comparing ? 'Comparing…' : 'Compare baselines' }}
           </button>
         </div>
       </header>
@@ -117,15 +159,28 @@ onMounted(async () => {
         <section class="scan-config panel">
           <div>
             <span class="panel-kicker">EVALUATION TARGET</span>
-            <strong>{{ targetProfile === 'demo-vulnerable' ? 'Vulnerable RAG Lab' : 'Hardened RAG Baseline' }}</strong>
+            <strong>{{ profileLabel }}</strong>
           </div>
           <div class="profile-switch">
             <button :class="{ selected: targetProfile === 'demo-vulnerable' }" @click="targetProfile = 'demo-vulnerable'">Vulnerable</button>
             <button :class="{ selected: targetProfile === 'demo-hardened' }" @click="targetProfile = 'demo-hardened'">Hardened</button>
+            <button v-if="capabilities?.network_targets_enabled" :class="{ selected: targetProfile === 'authorized-http' }" @click="targetProfile = 'authorized-http'">HTTP target</button>
           </div>
           <div class="scope"><span>6</span><small>CONTROLS</small></div>
           <div class="scope"><span>5</span><small>CATEGORIES</small></div>
           <div class="scope"><span>0</span><small>NETWORK CALLS</small></div>
+        </section>
+
+        <section v-if="targetProfile === 'authorized-http'" class="http-target panel">
+          <div><span class="panel-kicker">AUTHORIZED ENDPOINT</span><input v-model="targetName" maxlength="120" placeholder="Target name" /></div>
+          <label>Endpoint URL<input v-model="endpointUrl" type="url" placeholder="https://rag.example.com/query" /></label>
+          <label>Response field<input v-model="responseField" placeholder="answer or data.answer" /></label>
+          <label>Bearer token<input v-model="bearerToken" type="password" autocomplete="off" placeholder="Optional · never stored" /></label>
+          <small>Allowed hosts: {{ capabilities?.allowlisted_hosts.join(', ') || 'none configured' }}</small>
+        </section>
+
+        <section v-else-if="!capabilities?.network_targets_enabled" class="network-notice">
+          <span>LOCAL-SAFE MODE</span> To test an owned HTTP endpoint, enable the server-side allowlist described in the integration guide.
         </section>
 
         <section class="metrics-grid">
@@ -133,6 +188,7 @@ onMounted(async () => {
           <article class="metric panel"><span>PASS RATE</span><strong>{{ dashboard?.pass_rate ?? 0 }}<small>%</small></strong><em>ALL CONTROLS</em></article>
           <article class="metric panel"><span>HIGH RISK</span><strong>{{ dashboard?.high_risk_findings ?? 0 }}</strong><em class="bad">OPEN FINDINGS</em></article>
           <article class="metric panel"><span>TOTAL SCANS</span><strong>{{ dashboard?.total_scans ?? 0 }}</strong><em>LOCAL HISTORY</em></article>
+          <article v-if="baselineDelta !== null" class="metric panel delta"><span>BASELINE DELTA</span><strong>+{{ baselineDelta }}<small> pts</small></strong><em class="good">HARDENING GAIN</em></article>
         </section>
 
         <section v-if="latest" class="main-grid">
@@ -162,7 +218,7 @@ onMounted(async () => {
         </section>
 
         <section v-if="latest" class="panel findings-panel">
-          <div class="panel-head"><div><span class="panel-kicker">EVIDENCE</span><h2>Control results</h2></div><a :href="api.reportUrl(latest.id)" class="text-link">Export report ↓</a></div>
+          <div class="panel-head"><div><span class="panel-kicker">EVIDENCE</span><h2>Control results</h2></div><div class="report-links"><a :href="api.reportUrl(latest.id)">MD</a><a :href="api.reportUrl(latest.id, 'json')">JSON</a><a :href="api.reportUrl(latest.id, 'sarif')">SARIF</a></div></div>
           <div class="finding-table">
             <div class="table-head"><span>CONTROL</span><span>CATEGORY</span><span>SEVERITY</span><span>RESULT</span><span>LATENCY</span></div>
             <button v-for="finding in latest.findings" :key="finding.rule_id" class="finding-row" @click="selectedFinding = finding">
@@ -211,4 +267,3 @@ onMounted(async () => {
     </div>
   </div>
 </template>
-

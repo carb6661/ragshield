@@ -1,0 +1,22 @@
+name: Control proposal
+description: Propose a deterministic defensive RAG security control
+title: "[Control]: "
+labels: [enhancement, security-control]
+body:
+  - type: input
+    attributes:
+      label: Threat and framework mapping
+      placeholder: OWASP LLM06 / MITRE ATLAS AML.T0024
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Safe test scenario
+      description: Describe an inert, deterministic input and the expected secure behavior.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: False-positive considerations
+      description: Explain how the proposed marker or evaluator avoids ambiguous results.
+

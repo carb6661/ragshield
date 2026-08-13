@@ -23,8 +23,9 @@ Local vulnerable / hardened RAG profiles
 
 - **Control library:** immutable rule definitions with payload, expected safety
   behavior, forbidden leakage markers, mitigation, severity, and mappings.
-- **Target adapter:** a small protocol that keeps target behavior independent of
-  scoring. Version 0.1 deliberately ships only a deterministic local adapter.
+- **Target adapters:** a small protocol keeps execution independent of scoring.
+  Deterministic demo profiles are always available; the HTTP adapter is an
+  operator-enabled integration for exact allowlisted hosts.
 - **Scanner:** evaluates controls, gives forbidden evidence priority over generic
   refusal text, and computes a severity-weighted posture score.
 - **API:** exposes control metadata, scan execution, history, dashboard aggregates,
@@ -38,11 +39,11 @@ Critical, high, medium, and low controls carry weights of 25, 16, 9, and 4.
 The score is the percentage of total control weight that held. This is a project
 metric for comparing controlled test runs, not a compliance certification.
 
-## Extension boundary
+## Network boundary
 
-A future HTTP target adapter must remain disabled by default. It should require
-an explicit host allowlist, reject redirects, resolve DNS before each request,
-block metadata and link-local ranges, limit response size and time, and record
-authorization context. This boundary prevents an evaluation server from becoming
-an SSRF proxy.
-
+The HTTP target adapter remains disabled by default. It requires an explicit
+hostname allowlist, rejects redirects, resolves DNS, blocks non-global ranges by
+default, ignores environment proxy settings, and limits response size and time.
+This boundary prevents an evaluation server from becoming an SSRF proxy. Private
+and insecure HTTP targets require separate operator flags intended only for an
+isolated local lab.

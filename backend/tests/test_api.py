@@ -23,6 +23,11 @@ def test_scan_lifecycle_and_report(client):
     assert report.status_code == 200
     assert "RAGShield Security Report" in report.text
 
+    sarif = client.get(f"/api/v1/scans/{scan_id}/report?format=sarif")
+    assert sarif.status_code == 200
+    assert sarif.json()["version"] == "2.1.0"
+    assert sarif.json()["runs"][0]["results"] == []
+
 
 def test_dashboard_aggregates_findings(client):
     client.post(
@@ -41,3 +46,24 @@ def test_dashboard_aggregates_findings(client):
 
 def test_unknown_scan_returns_404(client):
     assert client.get("/api/v1/scans/not-found").status_code == 404
+    assert client.get("/api/v1/scans/not-found/report").status_code == 404
+
+
+def test_capabilities_are_safe_by_default(client):
+    payload = client.get("/api/v1/capabilities").json()
+    assert payload["network_targets_enabled"] is False
+    assert "authorized-http" not in payload["supported_profiles"]
+    assert "sarif" in payload["report_formats"]
+
+
+def test_network_target_rejected_when_disabled(client):
+    response = client.post(
+        "/api/v1/scans",
+        json={
+            "target_name": "External target",
+            "target_profile": "authorized-http",
+            "endpoint_url": "https://rag.example.test/query",
+        },
+    )
+    assert response.status_code == 400
+    assert "disabled" in response.json()["detail"]

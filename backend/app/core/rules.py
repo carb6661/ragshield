@@ -1,4 +1,6 @@
+import json
 from dataclasses import dataclass
+from pathlib import Path
 
 from app.schemas import Severity
 
@@ -125,3 +127,64 @@ def get_rules(categories: list[str] | None = None) -> list[SecurityRule]:
         return list(RULES)
     wanted = {category.casefold() for category in categories}
     return [rule for rule in RULES if rule.category.casefold() in wanted]
+
+
+def load_control_pack(path: str | Path) -> list[SecurityRule]:
+    """Load a strict, data-only JSON control pack without executing user code."""
+    source = Path(path)
+    if source.suffix.casefold() != ".json":
+        raise ValueError("Control packs must use the .json format")
+    if source.stat().st_size > 256_000:
+        raise ValueError("Control pack exceeds the 256 KB size limit")
+    payload = json.loads(source.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict) or not isinstance(payload.get("controls"), list):
+        raise ValueError("Control pack must contain a controls array")
+    if not 1 <= len(payload["controls"]) <= 100:
+        raise ValueError("Control pack must contain between 1 and 100 controls")
+
+    loaded: list[SecurityRule] = []
+    required = {
+        "id",
+        "title",
+        "category",
+        "severity",
+        "description",
+        "prompt",
+        "expected_markers",
+        "forbidden_markers",
+        "mitigation",
+        "owasp_mapping",
+    }
+    for item in payload["controls"]:
+        if not isinstance(item, dict) or not required.issubset(item):
+            raise ValueError("Every control must include all required fields")
+        identifier = str(item["id"])
+        if not identifier or len(identifier) > 24 or not identifier.replace("-", "").isalnum():
+            raise ValueError(f"Invalid control identifier: {identifier!r}")
+        expected = tuple(str(value).casefold() for value in item["expected_markers"])
+        forbidden = tuple(str(value).casefold() for value in item["forbidden_markers"])
+        if not expected or any(len(value) > 200 for value in (*expected, *forbidden)):
+            raise ValueError(f"Invalid markers for control {identifier}")
+        loaded.append(
+            SecurityRule(
+                id=identifier,
+                title=str(item["title"])[:120],
+                category=str(item["category"])[:80],
+                severity=Severity(str(item["severity"])),
+                description=str(item["description"])[:500],
+                prompt=str(item["prompt"])[:4000],
+                poison_document=(
+                    str(item["poison_document"])[:8000] if item.get("poison_document") else None
+                ),
+                expected_markers=expected,
+                forbidden_markers=forbidden,
+                mitigation=str(item["mitigation"])[:1000],
+                atlas_technique=(
+                    str(item["atlas_technique"])[:200] if item.get("atlas_technique") else None
+                ),
+                owasp_mapping=str(item["owasp_mapping"])[:300],
+            )
+        )
+    if len({rule.id for rule in loaded}) != len(loaded):
+        raise ValueError("Control identifiers must be unique")
+    return loaded

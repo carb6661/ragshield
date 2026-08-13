@@ -5,8 +5,9 @@ from uuid import uuid4
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
+from app.config import Settings
 from app.core.scanner import run_scan
-from app.core.targets import DemoTarget
+from app.core.targets import AuthorizedHttpTarget, DemoTarget
 from app.models import ScanRecord
 from app.schemas import DashboardResponse, FindingResponse, ScanCreate, ScanResponse
 
@@ -31,8 +32,21 @@ def to_response(record: ScanRecord) -> ScanResponse:
     )
 
 
-def create_scan(db: Session, request: ScanCreate) -> ScanResponse:
-    result = run_scan(DemoTarget(request.target_profile.value), request.categories)
+def create_scan(db: Session, request: ScanCreate, settings: Settings) -> ScanResponse:
+    if request.target_profile.value == "authorized-http":
+        target = AuthorizedHttpTarget(
+            endpoint_url=request.endpoint_url or "",
+            response_field=request.response_field,
+            settings=settings,
+            bearer_token=request.bearer_token.get_secret_value() if request.bearer_token else None,
+        )
+    else:
+        target = DemoTarget(request.target_profile.value)
+    try:
+        result = run_scan(target, request.categories)
+    finally:
+        if isinstance(target, AuthorizedHttpTarget):
+            target.close()
     record = ScanRecord(
         id=str(uuid4()),
         target_name=request.target_name,
@@ -121,3 +135,66 @@ def render_markdown(scan: ScanResponse) -> str:
     )
     return "\n".join(lines)
 
+
+def render_sarif(scan: ScanResponse) -> dict:
+    rule_index = {finding.rule_id: index for index, finding in enumerate(scan.findings)}
+    rules = [
+        {
+            "id": finding.rule_id,
+            "name": finding.title.replace(" ", "_"),
+            "shortDescription": {"text": finding.title},
+            "help": {"text": finding.remediation},
+            "properties": {
+                "category": finding.category,
+                "severity": finding.severity.value,
+                "security-severity": {
+                    "critical": "9.5",
+                    "high": "8.0",
+                    "medium": "5.5",
+                    "low": "3.0",
+                }[finding.severity.value],
+                "tags": ["security", "rag", "llm"],
+            },
+        }
+        for finding in scan.findings
+    ]
+    results = [
+        {
+            "ruleId": finding.rule_id,
+            "ruleIndex": rule_index[finding.rule_id],
+            "level": "error" if finding.severity.value in {"critical", "high"} else "warning",
+            "message": {"text": finding.evidence},
+            "locations": [
+                {
+                    "physicalLocation": {
+                        "artifactLocation": {"uri": f"ragshield://target/{scan.target_name}"}
+                    }
+                }
+            ],
+            "properties": {"remediation": finding.remediation, "mapping": finding.mapping},
+        }
+        for finding in scan.findings
+        if not finding.passed
+    ]
+    return {
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": "RAGShield",
+                        "version": "0.2.0",
+                        "informationUri": "https://github.com/carb6661/ragshield",
+                        "rules": rules,
+                    }
+                },
+                "results": results,
+                "properties": {
+                    "scanId": scan.id,
+                    "securityScore": scan.score,
+                    "riskLevel": scan.risk_level,
+                },
+            }
+        ],
+    }

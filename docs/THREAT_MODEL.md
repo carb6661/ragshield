@@ -29,11 +29,11 @@ The mappings are informed by OWASP guidance for LLM applications and the MITRE
 ATLAS knowledge base. A passing result is evidence for the exact deterministic
 scenario only; it does not prove a target is secure against adaptive attackers.
 
-## Out of scope for version 0.1
+## Out of scope
 
 - model training and weight attacks;
 - availability or high-volume load testing;
-- automated scanning of arbitrary internet hosts;
+- automated scanning of arbitrary internet hosts; HTTP evaluation is limited to
+  exact hosts configured by the server operator;
 - malware generation, exploitation, or persistence;
 - certification against a legal or regulatory standard.
-

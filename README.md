@@ -8,24 +8,34 @@
 ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB)
 ![Vue](https://img.shields.io/badge/Vue-3-42b883)
 ![License](https://img.shields.io/badge/license-MIT-63f5b1)
+![Coverage](https://img.shields.io/badge/coverage-94%25-63f5b1)
 
 </div>
 
-RAGShield is an open-source lab for testing security controls around RAG systems.
+English · [简体中文](README.zh-CN.md)
+
+RAGShield is an open-source toolkit for testing security controls around RAG systems.
 It turns prompt injection, poisoned retrieval context, cross-tenant access, data
 leakage, and provenance requirements into repeatable controls with evidence and
 severity-weighted scoring.
 
-The default release is intentionally safe: it evaluates deterministic local
+The default mode is intentionally safe: it evaluates deterministic local
 vulnerable and hardened profiles, makes no network calls, needs no model API key,
 and contains no real credentials.
 
+It can also evaluate an owned JSON endpoint, but only after the server operator
+enables an exact hostname allowlist. This makes RAGShield useful in staging and CI
+without turning a shared deployment into an arbitrary network scanner.
+
 ## What it demonstrates
 
-- six defensive controls covering five RAG attack-surface categories;
+- six built-in controls covering five RAG attack-surface categories;
 - vulnerable-versus-hardened baseline comparison;
 - OWASP LLM and MITRE ATLAS mappings;
-- evidence, remediation, weighted scoring, and Markdown reports;
+- authorized HTTP target adapter with SSRF-resistant defaults;
+- Markdown, JSON, and SARIF reports for humans and GitHub Code Scanning;
+- strict data-only custom control packs;
+- standalone CLI with severity-based CI exit codes;
 - persistent scan history and dashboard aggregates;
 - production-style FastAPI, Vue 3, SQLite, Docker Compose, tests, and CI.
 
@@ -61,6 +71,18 @@ npm run dev
 
 Then open `http://localhost:5173`.
 
+Install the CLI from a checkout:
+
+```bash
+cd backend
+pip install .
+ragshield --profile demo-vulnerable --format sarif --output ragshield.sarif
+```
+
+The CLI exits with status `1` when a finding meets `--fail-on` (default: high),
+status `2` for configuration errors, and `0` when the policy passes. Use
+`--fail-on never` for observation-only runs.
+
 ## API example
 
 ```bash
@@ -71,6 +93,8 @@ curl -X POST http://localhost:8000/api/v1/scans \
 
 Profiles are `demo-vulnerable` and `demo-hardened`. Reports can be downloaded
 from `GET /api/v1/scans/{scan_id}/report`.
+
+Use `?format=markdown`, `?format=json`, or `?format=sarif` to select a report.
 
 ## Control catalog
 
@@ -84,7 +108,29 @@ from `GET /api/v1/scans/{scan_id}/report`.
 | SRC-001 | Integrity | answer without provenance | Medium |
 
 See [the architecture](docs/ARCHITECTURE.md) and
-[threat model](docs/THREAT_MODEL.md) for design details and limitations.
+[threat model](docs/THREAT_MODEL.md) for design details and limitations. To test
+an owned staging system, follow the [authorized HTTP integration guide](docs/HTTP_INTEGRATION.md).
+To add organization-specific checks, see [custom control packs](docs/CONTROL_PACKS.md).
+
+## CI example
+
+```yaml
+- name: Run RAGShield baseline
+  working-directory: backend
+  run: |
+    pip install .
+    ragshield --profile demo-hardened --format sarif --output ragshield.sarif
+
+- name: Upload security results
+  uses: github/codeql-action/upload-sarif@v3
+  if: always()
+  with:
+    sarif_file: backend/ragshield.sarif
+```
+
+For a staging endpoint, configure `RAGSHIELD_ENABLE_NETWORK_TARGETS` and the exact
+`RAGSHIELD_HTTP_TARGET_ALLOWLIST` in protected CI variables. Do not put bearer
+tokens into a repository or a control pack.
 
 ## Verification
 
@@ -100,9 +146,18 @@ npm run build
 ## Responsible use
 
 Use RAGShield only on applications you own or are explicitly authorized to test.
-Version 0.1 does not include an arbitrary HTTP scanner. If you build a network
-adapter, keep it opt-in and implement strict allowlisting, DNS and redirect checks,
-rate limits, response-size limits, audit logs, and authorization records.
+RAGShield does not include an arbitrary internet scanner. Version 0.2 provides
+an opt-in adapter with exact allowlisting, DNS/IP
+checks, redirects disabled, environment proxies disabled, and time/size limits.
+Only enable it for explicitly authorized targets.
+
+## Roadmap
+
+- signed and versioned community control packs;
+- pluggable semantic evaluators alongside deterministic markers;
+- scheduled regression comparisons and score trends;
+- additional RAG framework adapters and authentication strategies;
+- bilingual console and reports.
 
 ## Contributing and security
 
@@ -110,4 +165,3 @@ Contributions are welcome; read [CONTRIBUTING.md](CONTRIBUTING.md). Please repor
 security issues privately as described in [SECURITY.md](SECURITY.md).
 
 Released under the [MIT License](LICENSE).
-

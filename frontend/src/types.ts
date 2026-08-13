@@ -46,3 +46,17 @@ export interface Rule {
   owasp_mapping: string
 }
 
+export interface Capabilities {
+  network_targets_enabled: boolean
+  allowlisted_hosts: string[]
+  supported_profiles: string[]
+  report_formats: string[]
+}
+
+export interface ScanRequest {
+  target_name: string
+  target_profile: string
+  endpoint_url?: string
+  response_field?: string
+  bearer_token?: string
+}

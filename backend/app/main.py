@@ -17,7 +17,7 @@ async def lifespan(_: FastAPI):
 settings = get_settings()
 app = FastAPI(
     title=settings.app_name,
-    version=settings.app_version,
+    version="0.2.0",
     description="Defensive security evaluation for retrieval-augmented generation systems.",
     lifespan=lifespan,
 )
@@ -34,4 +34,3 @@ app.include_router(router)
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": settings.app_name, "version": settings.app_version}
-

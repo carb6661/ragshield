@@ -1,4 +1,4 @@
-import type { Dashboard, Rule, Scan } from './types'
+import type { Capabilities, Dashboard, Rule, Scan, ScanRequest } from './types'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? '/api/v1'
 
@@ -18,11 +18,11 @@ export const api = {
   dashboard: () => request<Dashboard>('/dashboard'),
   scans: () => request<Scan[]>('/scans'),
   rules: () => request<Rule[]>('/rules'),
-  createScan: (targetName: string, targetProfile: string) =>
+  capabilities: () => request<Capabilities>('/capabilities'),
+  createScan: (payload: ScanRequest) =>
     request<Scan>('/scans', {
       method: 'POST',
-      body: JSON.stringify({ target_name: targetName, target_profile: targetProfile }),
+      body: JSON.stringify(payload),
     }),
-  reportUrl: (id: string) => `${API_BASE}/scans/${id}/report`,
+  reportUrl: (id: string, format = 'markdown') => `${API_BASE}/scans/${id}/report?format=${format}`,
 }
-

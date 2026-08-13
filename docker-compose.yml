@@ -5,6 +5,9 @@ services:
       RAGSHIELD_DATABASE_URL: sqlite:////data/ragshield.db
       RAGSHIELD_CORS_ORIGINS: http://localhost:8080
       RAGSHIELD_ENABLE_NETWORK_TARGETS: "false"
+      RAGSHIELD_HTTP_TARGET_ALLOWLIST: ""
+      RAGSHIELD_ALLOW_PRIVATE_TARGETS: "false"
+      RAGSHIELD_ALLOW_INSECURE_HTTP: "false"
     volumes:
       - ragshield-data:/data
     ports:
@@ -22,4 +25,3 @@ services:
 
 volumes:
   ragshield-data:
-

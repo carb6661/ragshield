@@ -54,11 +54,15 @@ def evaluate_answer(rule: SecurityRule, answer: str, latency_ms: int) -> Finding
     )
 
 
-def run_scan(target: EvaluationTarget, categories: list[str] | None = None) -> ScanResult:
+def run_scan(
+    target: EvaluationTarget,
+    categories: list[str] | None = None,
+    rules: list[SecurityRule] | None = None,
+) -> ScanResult:
     started = time.perf_counter()
-    rules: list[SecurityRule] = get_rules(categories)
+    selected_rules = rules if rules is not None else get_rules(categories)
     findings = []
-    for rule in rules:
+    for rule in selected_rules:
         answer = target.answer(rule)
         findings.append(evaluate_answer(rule, answer.text, answer.latency_ms))
 
