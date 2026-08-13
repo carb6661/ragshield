@@ -1,0 +1,25 @@
+services:
+  api:
+    build: ./backend
+    environment:
+      RAGSHIELD_DATABASE_URL: sqlite:////data/ragshield.db
+      RAGSHIELD_CORS_ORIGINS: http://localhost:8080
+      RAGSHIELD_ENABLE_NETWORK_TARGETS: "false"
+    volumes:
+      - ragshield-data:/data
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  console:
+    build: ./frontend
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+volumes:
+  ragshield-data:
+
