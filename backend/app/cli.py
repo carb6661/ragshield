@@ -5,7 +5,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from app.config import get_settings
-from app.core.rules import load_control_pack
+from app.core.rules import RULES, SecurityRule, load_control_pack
 from app.core.scanner import run_scan
 from app.core.targets import (
     AuthorizedHttpTarget,
@@ -33,6 +33,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--bearer-token", help="Bearer token; prefer an ephemeral environment wrapper"
     )
     parser.add_argument("--control-pack", help="Optional path to a data-only JSON control pack")
+    parser.add_argument(
+        "--list-controls",
+        action="store_true",
+        help="List built-in controls (or controls from --control-pack) and exit",
+    )
     parser.add_argument("--format", choices=["markdown", "json", "sarif"], default="markdown")
     parser.add_argument("--output", help="Write the report to this path instead of stdout")
     parser.add_argument(
@@ -41,6 +46,16 @@ def build_parser() -> argparse.ArgumentParser:
         default="high",
     )
     return parser
+
+
+def _render_control_catalog(rules: list[SecurityRule]) -> str:
+    """Render a compact, copy-friendly catalogue without contacting a target."""
+    rows = ["ID       Severity  Category           Control"]
+    rows.extend(
+        f"{rule.id:<8} {rule.severity.value:<9} {rule.category:<18} {rule.title}"
+        for rule in rules
+    )
+    return "\n".join(rows)
 
 
 def _exit_code(scan: ScanResponse, fail_on: str) -> int:
@@ -58,8 +73,13 @@ def _exit_code(scan: ScanResponse, fail_on: str) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    settings = get_settings()
     try:
+        if args.list_controls:
+            rules = load_control_pack(args.control_pack) if args.control_pack else list(RULES)
+            print(_render_control_catalog(rules))
+            return 0
+
+        settings = get_settings()
         if args.profile == "authorized-http":
             if not args.endpoint:
                 raise TargetConfigurationError("--endpoint is required for authorized-http")

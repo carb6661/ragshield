@@ -111,6 +111,21 @@ pip install .
 ragshield --profile demo-vulnerable --format sarif --output ragshield.sarif
 ```
 
+先查看内置控制，而不连接任何目标：
+
+```bash
+ragshield --list-controls
+```
+
+用内置靶场做一次 30 秒演示（不会访问网络）：
+
+```bash
+ragshield --profile demo-vulnerable --format markdown --fail-on never
+ragshield --profile demo-hardened --format markdown --fail-on never
+```
+
+两次输出可直观展示相同控制在脆弱配置与加固配置下的差异，适合在本地评估流程或 CI 试运行中使用。
+
 CLI 退出码：
 
 - `0`：没有达到门禁阈值的失败项；

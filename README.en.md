@@ -50,6 +50,19 @@ pip install .
 ragshield --profile demo-vulnerable --format sarif --output ragshield.sarif
 ```
 
+List the built-in controls without contacting a target:
+
+```bash
+ragshield --list-controls
+```
+
+Run a 30-second, network-free comparison with the built-in labs:
+
+```bash
+ragshield --profile demo-vulnerable --format markdown --fail-on never
+ragshield --profile demo-hardened --format markdown --fail-on never
+```
+
 Exit status is `1` when a finding meets `--fail-on` (high by default), `2` for
 configuration errors, and `0` when the policy passes. Use `--fail-on never` for
 observation-only runs.

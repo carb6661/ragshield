@@ -46,3 +46,11 @@ def test_cli_rejects_invalid_control_pack(tmp_path, capsys):
     assert main(["--control-pack", str(path)]) == 2
     assert "controls array" in capsys.readouterr().err
 
+
+def test_cli_lists_controls_without_running_a_scan(capsys):
+    assert main(["--list-controls"]) == 0
+    output = capsys.readouterr().out
+    assert "PI-001" in output
+    assert "RAG-001" in output
+    assert "Prompt Injection" in output
+
